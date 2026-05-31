@@ -12,7 +12,7 @@ if (is_logged_in()) {
     redirect('/complaint-system/index.php');
 }
 
-$page_title = 'Login - Public Complaint Management System';
+$page_title = 'Login - Yogyakarta City Complaint Register';
 $errors = [];
 $email = '';
 
@@ -78,7 +78,7 @@ include 'includes/header.php';
                     <div class="card-body p-4">
                         <div class="text-center mb-3">
                             <span class="brand-mark">
-                                <img src="/complaint-system/logo/logo.png" alt="Complaint System logo" class="brand-logo">
+                                <img src="/complaint-system/logo/logo.png" alt="Yogyakarta City Complaint Register logo" class="brand-logo">
                             </span>
                         </div>
                         <h1 class="h3 text-center mb-4">Login</h1>

@@ -4,7 +4,7 @@ require_once 'includes/functions.php';
 
 require_login();
 
-$page_title = 'Report Details - Public Complaint Management System';
+$page_title = 'Report Details - Yogyakarta City Complaint Register';
 $user_id = (int) $_SESSION['user_id'];
 $report_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $report = null;

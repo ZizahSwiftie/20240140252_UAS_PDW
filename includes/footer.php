@@ -17,9 +17,9 @@
         <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 text-muted small">
             <div class="d-flex align-items-center gap-2">
                 <span class="brand-mark brand-mark-sm">
-                    <img src="/complaint-system/logo/logo.png" alt="Complaint System logo" class="brand-logo">
+                    <img src="/complaint-system/logo/logo.png" alt="Yogyakarta City Complaint Register logo" class="brand-logo">
                 </span>
-                <span>&copy; <?php echo date('Y'); ?> Public Complaint Management System.</span>
+                <span>&copy; <?php echo date('Y'); ?> Yogyakarta City Complaint Register.</span>
             </div>
             <span>Transparent complaint reporting for public services.</span>
         </div>

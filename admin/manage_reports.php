@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_admin();
 
-$page_title = 'Manage Reports - Public Complaint Management System';
+$page_title = 'Manage Reports - Yogyakarta City Complaint Register';
 $categories = ['Infrastructure', 'Cleanliness', 'Security', 'Public Service', 'Environment'];
 $statuses = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
 $filter_keys = ['search', 'category', 'status', 'date_from', 'date_to'];

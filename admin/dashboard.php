@@ -84,7 +84,7 @@ if ($audit_result) {
     }
 }
 
-$page_title = 'Admin Dashboard - Public Complaint Management System';
+$page_title = 'Admin Dashboard - Yogyakarta City Complaint Register';
 $extra_head = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>';
 include __DIR__ . '/../includes/header.php';
 ?>

@@ -4,7 +4,7 @@ require_once 'includes/functions.php';
 
 require_login();
 
-$page_title = 'Submit Report - Public Complaint Management System';
+$page_title = 'Submit Report - Yogyakarta City Complaint Register';
 $categories = ['Infrastructure', 'Cleanliness', 'Security', 'Public Service', 'Environment'];
 $allowed_extensions = ['jpg', 'jpeg', 'png'];
 $allowed_mime_types = ['image/jpeg', 'image/png'];

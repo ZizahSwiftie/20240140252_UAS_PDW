@@ -1,0 +1,1 @@
+csrf_token|s:64:"ca789678d851e6dad128d419ae967308c8c8c49a27c940ddf7799d9aed0cedac";user_id|i:2;user_name|s:5:"Admin";user_role|s:5:"admin";user_avatar|s:0:"";admin_report_filters|a:5:{s:6:"search";s:4:"user";s:8:"category";s:0:"";s:6:"status";s:0:"";s:9:"date_from";s:0:"";s:7:"date_to";s:0:"";}

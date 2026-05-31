@@ -4,7 +4,7 @@ require_once 'includes/functions.php';
 
 require_login();
 
-$page_title = 'Profile - Public Complaint Management System';
+$page_title = 'Profile - Yogyakarta City Complaint Register';
 $user_id = (int) $_SESSION['user_id'];
 $profile_errors = [];
 $password_errors = [];

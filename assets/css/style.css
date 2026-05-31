@@ -201,6 +201,17 @@ h6 {
     object-fit: contain;
 }
 
+.navbar-brand .brand-mark {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+}
+
+.navbar-brand .brand-logo {
+    width: 54px;
+    height: 54px;
+}
+
 .form-control,
 .form-select {
     border-radius: 0.75rem;
@@ -275,6 +286,19 @@ h6 {
 
 .stat-card {
     border-left: .35rem solid var(--bs-primary);
+}
+
+.stat-card-link {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    height: 100%;
+}
+
+.stat-card-link:focus-visible {
+    border-radius: 1rem;
+    outline: 3px solid rgba(22, 125, 134, 0.45);
+    outline-offset: 3px;
 }
 
 .stat-card-secondary {

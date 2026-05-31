@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_admin();
 
-$page_title = 'Admin Report Details - Public Complaint Management System';
+$page_title = 'Admin Report Details - Yogyakarta City Complaint Register';
 $categories = ['Infrastructure', 'Cleanliness', 'Security', 'Public Service', 'Environment'];
 $statuses = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
 $report_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
@@ -196,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $report_id > 0) {
             if ($update_stmt) {
                 mysqli_stmt_bind_param(
                     $update_stmt,
-                    'sssssssisssi',
+                    'ssssssssissi',
                     $form_title,
                     $form_description,
                     $form_category,

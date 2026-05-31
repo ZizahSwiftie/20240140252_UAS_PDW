@@ -4,7 +4,7 @@ require_once 'includes/functions.php';
 
 start_secure_session();
 
-$page_title = 'Home - Public Complaint Management System';
+$page_title = 'Home - Yogyakarta City Complaint Register';
 $is_logged_in = is_logged_in();
 $is_admin_user = is_admin();
 $stats = [
@@ -14,7 +14,6 @@ $stats = [
     'resolved_reports' => 0
 ];
 $recent_reports = [];
-$notifications = [];
 $profile = [
     'name' => $_SESSION['user_name'] ?? 'User',
     'email' => '',
@@ -22,7 +21,6 @@ $profile = [
     'profile_image' => ''
 ];
 $dashboard_error = '';
-$notification_error = '';
 
 if ($is_logged_in && $is_admin_user) {
     redirect('/complaint-system/admin/dashboard.php');
@@ -90,26 +88,6 @@ if ($is_logged_in && !$is_admin_user) {
         $dashboard_error = 'Unable to load recent reports right now.';
     }
 
-    $notification_sql = 'SELECT title, message, is_read, created_at
-        FROM notifications
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT 5';
-    $notification_stmt = mysqli_prepare($conn, $notification_sql);
-
-    if ($notification_stmt) {
-        mysqli_stmt_bind_param($notification_stmt, 'i', $user_id);
-        mysqli_stmt_execute($notification_stmt);
-        $notification_result = mysqli_stmt_get_result($notification_stmt);
-
-        while ($row = mysqli_fetch_assoc($notification_result)) {
-            $notifications[] = $row;
-        }
-
-        mysqli_stmt_close($notification_stmt);
-    } else {
-        $notification_error = 'Unable to load notifications right now.';
-    }
 }
 
 include 'includes/header.php';
@@ -125,7 +103,7 @@ include 'includes/header.php';
                     </div>
 
                     <h1 class="display-5 fw-bold text-primary mb-3">
-                        Public Complaint Management System
+                        Yogyakarta City Complaint Register
                     </h1>
                     <p class="lead text-muted mb-4">
                         Submit public complaints, attach evidence, and track responses transparently through one simple portal.
@@ -156,8 +134,8 @@ include 'includes/header.php';
         <div class="container">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 page-heading">
                 <div>
-                    <h1 class="h3 mb-1">Dashboard</h1>
-                    <p class="text-muted mb-0">Welcome back, <?php echo htmlspecialchars($profile['name']); ?>. Here is your complaint activity.</p>
+                    <h1 class="h3 mb-1">Welcome, <?php echo htmlspecialchars($profile['name']); ?></h1>
+                    <p class="text-muted mb-0">Here is your complaint activity.</p>
                 </div>
             </div>
 
@@ -169,36 +147,44 @@ include 'includes/header.php';
 
             <div class="row g-4 mb-4">
                 <div class="col-sm-6 col-xl-3">
-                    <div class="card app-card stat-card h-100">
-                        <div class="card-body">
-                            <p class="text-muted mb-1">Total Reports</p>
-                            <h2 class="display-6 fw-bold mb-0"><?php echo (int) $stats['total_reports']; ?></h2>
+                    <a href="my_reports.php" class="stat-card-link" aria-label="View all reports">
+                        <div class="card app-card stat-card h-100">
+                            <div class="card-body">
+                                <p class="text-muted mb-1">Total Reports</p>
+                                <h2 class="display-6 fw-bold mb-0"><?php echo (int) $stats['total_reports']; ?></h2>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
-                    <div class="card app-card stat-card stat-card-secondary h-100">
-                        <div class="card-body">
-                            <p class="text-muted mb-1">Pending Reports</p>
-                            <h2 class="display-6 fw-bold text-secondary mb-0"><?php echo (int) $stats['pending_reports']; ?></h2>
+                    <a href="my_reports.php?status=Pending" class="stat-card-link" aria-label="View pending reports">
+                        <div class="card app-card stat-card stat-card-secondary h-100">
+                            <div class="card-body">
+                                <p class="text-muted mb-1">Pending Reports</p>
+                                <h2 class="display-6 fw-bold text-secondary mb-0"><?php echo (int) $stats['pending_reports']; ?></h2>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
-                    <div class="card app-card stat-card stat-card-warning h-100">
-                        <div class="card-body">
-                            <p class="text-muted mb-1">In Progress</p>
-                            <h2 class="display-6 fw-bold text-warning mb-0"><?php echo (int) $stats['in_progress_reports']; ?></h2>
+                    <a href="my_reports.php?status=In%20Progress" class="stat-card-link" aria-label="View reports in progress">
+                        <div class="card app-card stat-card stat-card-warning h-100">
+                            <div class="card-body">
+                                <p class="text-muted mb-1">In Progress</p>
+                                <h2 class="display-6 fw-bold text-warning mb-0"><?php echo (int) $stats['in_progress_reports']; ?></h2>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
-                    <div class="card app-card stat-card stat-card-success h-100">
-                        <div class="card-body">
-                            <p class="text-muted mb-1">Resolved Reports</p>
-                            <h2 class="display-6 fw-bold text-success mb-0"><?php echo (int) $stats['resolved_reports']; ?></h2>
+                    <a href="my_reports.php?status=Resolved" class="stat-card-link" aria-label="View resolved reports">
+                        <div class="card app-card stat-card stat-card-success h-100">
+                            <div class="card-body">
+                                <p class="text-muted mb-1">Resolved Reports</p>
+                                <h2 class="display-6 fw-bold text-success mb-0"><?php echo (int) $stats['resolved_reports']; ?></h2>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
             </div>
 
@@ -283,30 +269,6 @@ include 'includes/header.php';
                         </div>
                     </div>
 
-                    <div class="card app-card mt-4">
-                        <div class="card-body p-4">
-                            <h2 class="h5 mb-3">Notifications</h2>
-                            <?php if ($notification_error !== ''): ?>
-                                <div class="alert alert-danger" role="alert">
-                                    <?php echo htmlspecialchars($notification_error); ?>
-                                </div>
-                            <?php elseif (count($notifications) > 0): ?>
-                                <ul class="list-group list-group-flush">
-                                    <?php foreach ($notifications as $notification): ?>
-                                        <li class="list-group-item px-0">
-                                            <div class="d-flex justify-content-between">
-                                                <span class="fw-semibold"><?php echo htmlspecialchars($notification['title']); ?></span>
-                                                <span class="text-muted small"><?php echo htmlspecialchars(format_datetime($notification['created_at'])); ?></span>
-                                            </div>
-                                            <div class="text-muted small"><?php echo htmlspecialchars($notification['message']); ?></div>
-                                        </li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            <?php else: ?>
-                                <p class="text-muted mb-0">No notifications yet.</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

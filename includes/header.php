@@ -2,7 +2,7 @@
 require_once __DIR__ . '/functions.php';
 start_secure_session();
 
-$page_title = $page_title ?? 'Public Complaint Management System';
+$page_title = $page_title ?? 'Yogyakarta City Complaint Register';
 $base_url = '/complaint-system/';
 $current_path = $_SERVER['SCRIPT_NAME'] ?? '';
 $is_logged_in = is_logged_in();
@@ -22,7 +22,7 @@ $flash_message = get_flash_message();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?php echo $base_url; ?>assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo $base_url; ?>assets/css/style.css?v=20260601-1" rel="stylesheet">
     <?php echo $extra_head ?? ''; ?>
 </head>
 <body class="bg-light">
@@ -31,9 +31,9 @@ $flash_message = get_flash_message();
         <div class="container">
             <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="<?php echo $home_link; ?>">
                 <span class="brand-mark">
-                    <img src="<?php echo $base_url; ?>logo/logo.png" alt="Complaint System logo" class="brand-logo">
+                    <img src="<?php echo $base_url; ?>logo/logo.png" alt="Yogyakarta City Complaint Register logo" class="brand-logo">
                 </span>
-                <span>Complaint System</span>
+                <span>Yogyakarta City Complaint Register</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main_navbar" aria-controls="main_navbar" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
