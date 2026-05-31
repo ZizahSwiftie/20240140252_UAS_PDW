@@ -10,6 +10,7 @@ $report_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $report = null;
 $error_message = '';
 $has_coordinates = false;
+$status_history = [];
 $extra_head = '';
 
 if ($report_id <= 0) {
@@ -32,6 +33,22 @@ if ($report_id > 0) {
     } else {
         error_log('User report detail prepare failed: ' . mysqli_error($conn));
         $error_message = 'Unable to load report details right now. Please try again later.';
+    }
+}
+
+if ($report_id > 0) {
+    $history_stmt = mysqli_prepare($conn, 'SELECT status, note, created_at FROM report_status_history WHERE report_id = ? ORDER BY created_at DESC');
+
+    if ($history_stmt) {
+        mysqli_stmt_bind_param($history_stmt, 'i', $report_id);
+        mysqli_stmt_execute($history_stmt);
+        $history_result = mysqli_stmt_get_result($history_stmt);
+
+        while ($row = mysqli_fetch_assoc($history_result)) {
+            $status_history[] = $row;
+        }
+
+        mysqli_stmt_close($history_stmt);
     }
 }
 
@@ -112,11 +129,35 @@ include 'includes/header.php';
                         <div class="card-body p-4">
                             <h2 class="h5 mb-3">Uploaded Image</h2>
                             <?php if (!empty($report['image'])): ?>
-                                <a href="<?php echo htmlspecialchars($report['image']); ?>" target="_blank">
-                                    <img src="<?php echo htmlspecialchars($report['image']); ?>" alt="Uploaded report evidence" class="img-fluid rounded border report-image w-100">
-                                </a>
+                                <img src="<?php echo htmlspecialchars($report['image']); ?>" alt="Uploaded report evidence" class="img-fluid rounded border report-image w-100" loading="lazy">
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#imageModal" data-image="<?php echo htmlspecialchars($report['image']); ?>">View Full Image</button>
+                                </div>
                             <?php else: ?>
                                 <p class="text-muted mb-0">No image available.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="card app-card mt-4">
+                        <div class="card-body p-4">
+                            <h2 class="h5 mb-3">Status Timeline</h2>
+                            <?php if (count($status_history) > 0): ?>
+                                <ul class="list-group list-group-flush">
+                                    <?php foreach ($status_history as $history): ?>
+                                        <li class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="fw-semibold"><?php echo htmlspecialchars($history['status']); ?></span>
+                                                <span class="text-muted small"><?php echo htmlspecialchars(format_datetime($history['created_at'])); ?></span>
+                                            </div>
+                                            <?php if (!empty($history['note'])): ?>
+                                                <div class="text-muted small"><?php echo htmlspecialchars($history['note']); ?></div>
+                                            <?php endif; ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else: ?>
+                                <p class="text-muted mb-0">No history available.</p>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -155,6 +196,32 @@ include 'includes/header.php';
         }).addTo(reportMap);
 
         L.marker([reportLatitude, reportLongitude]).addTo(reportMap);
+    </script>
+<?php endif; ?>
+
+<?php if (!empty($report['image'])): ?>
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body p-0">
+                    <img src="<?php echo htmlspecialchars($report['image']); ?>" alt="Report evidence" class="w-100">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageModal = document.getElementById('imageModal');
+        if (imageModal) {
+            imageModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const image = button ? button.getAttribute('data-image') : '';
+                const modalImage = imageModal.querySelector('img');
+                if (modalImage && image) {
+                    modalImage.src = image;
+                }
+            });
+        }
     </script>
 <?php endif; ?>
 

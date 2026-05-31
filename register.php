@@ -15,6 +15,7 @@ $name = '';
 $email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_valid_csrf();
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -72,9 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mysqli_stmt_bind_param($insert_stmt, 'ssss', $name, $email, $hashed_password, $role);
 
             if (mysqli_stmt_execute($insert_stmt)) {
-                $success_message = 'Registration successful. You can now log in.';
-                $name = '';
-                $email = '';
+                set_flash_message('success', 'Registration successful. You can now log in.');
+                mysqli_stmt_close($insert_stmt);
+                redirect('/complaint-system/login.php');
             } else {
                 error_log('Register insert failed: ' . mysqli_stmt_error($insert_stmt));
 
@@ -102,14 +103,12 @@ include 'includes/header.php';
             <div class="col-md-8 col-lg-6">
                 <div class="card app-card">
                     <div class="card-body p-4">
+                        <div class="text-center mb-3">
+                            <span class="brand-mark">
+                                <img src="/complaint-system/logo/logo.png" alt="Complaint System logo" class="brand-logo">
+                            </span>
+                        </div>
                         <h1 class="h3 text-center mb-4">Create Account</h1>
-
-                        <?php if ($success_message !== ''): ?>
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <?php echo htmlspecialchars($success_message); ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        <?php endif; ?>
 
                         <?php if (isset($errors['general'])): ?>
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -119,6 +118,7 @@ include 'includes/header.php';
                         <?php endif; ?>
 
                         <form method="POST" action="register.php" novalidate>
+                            <?php csrf_field(); ?>
                             <div class="mb-3">
                                 <label for="name" class="form-label">Name</label>
                                 <input type="text" class="form-control <?php echo isset($errors['name']) ? 'is-invalid' : ''; ?>" id="name" name="name" value="<?php echo sanitize_input($name); ?>" placeholder="Enter your full name" required>
@@ -151,7 +151,9 @@ include 'includes/header.php';
                                 <?php endif; ?>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100">Register</button>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Register</button>
+                            </div>
                         </form>
 
                         <p class="text-center text-muted mt-3 mb-0">

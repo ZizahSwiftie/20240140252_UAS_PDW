@@ -14,12 +14,15 @@ $stats = [
     'resolved_reports' => 0
 ];
 $recent_reports = [];
+$notifications = [];
 $profile = [
     'name' => $_SESSION['user_name'] ?? 'User',
     'email' => '',
-    'created_at' => ''
+    'created_at' => '',
+    'profile_image' => ''
 ];
 $dashboard_error = '';
+$notification_error = '';
 
 if ($is_logged_in && $is_admin_user) {
     redirect('/complaint-system/admin/dashboard.php');
@@ -27,7 +30,7 @@ if ($is_logged_in && $is_admin_user) {
 
 if ($is_logged_in && !$is_admin_user) {
     $user_id = (int) $_SESSION['user_id'];
-    $profile_sql = 'SELECT name, email, created_at FROM users WHERE id = ? LIMIT 1';
+    $profile_sql = 'SELECT name, email, created_at, profile_image FROM users WHERE id = ? LIMIT 1';
     $profile_stmt = mysqli_prepare($conn, $profile_sql);
 
     if ($profile_stmt) {
@@ -85,6 +88,27 @@ if ($is_logged_in && !$is_admin_user) {
     } else {
         error_log('Homepage recent reports prepare failed: ' . mysqli_error($conn));
         $dashboard_error = 'Unable to load recent reports right now.';
+    }
+
+    $notification_sql = 'SELECT title, message, is_read, created_at
+        FROM notifications
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 5';
+    $notification_stmt = mysqli_prepare($conn, $notification_sql);
+
+    if ($notification_stmt) {
+        mysqli_stmt_bind_param($notification_stmt, 'i', $user_id);
+        mysqli_stmt_execute($notification_stmt);
+        $notification_result = mysqli_stmt_get_result($notification_stmt);
+
+        while ($row = mysqli_fetch_assoc($notification_result)) {
+            $notifications[] = $row;
+        }
+
+        mysqli_stmt_close($notification_stmt);
+    } else {
+        $notification_error = 'Unable to load notifications right now.';
     }
 }
 
@@ -231,9 +255,13 @@ include 'includes/header.php';
                     <div class="card app-card h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center gap-3 mb-4">
-                                <div class="profile-initial">
-                                    <?php echo htmlspecialchars(strtoupper(substr($profile['name'], 0, 1))); ?>
-                                </div>
+                                <?php if (!empty($profile['profile_image'])): ?>
+                                    <img src="<?php echo htmlspecialchars($profile['profile_image']); ?>" alt="Profile" class="profile-avatar">
+                                <?php else: ?>
+                                    <div class="profile-initial profile-avatar-fallback">
+                                        <?php echo htmlspecialchars(strtoupper(substr($profile['name'], 0, 1))); ?>
+                                    </div>
+                                <?php endif; ?>
                                 <div>
                                     <h2 class="h5 mb-1"><?php echo htmlspecialchars($profile['name']); ?></h2>
                                     <p class="text-muted small mb-0"><?php echo htmlspecialchars($profile['email']); ?></p>
@@ -252,6 +280,31 @@ include 'includes/header.php';
                                 <a href="submit_report.php" class="btn btn-primary">Submit Report</a>
                                 <a href="profile.php" class="btn btn-outline-secondary">Manage Profile</a>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card app-card mt-4">
+                        <div class="card-body p-4">
+                            <h2 class="h5 mb-3">Notifications</h2>
+                            <?php if ($notification_error !== ''): ?>
+                                <div class="alert alert-danger" role="alert">
+                                    <?php echo htmlspecialchars($notification_error); ?>
+                                </div>
+                            <?php elseif (count($notifications) > 0): ?>
+                                <ul class="list-group list-group-flush">
+                                    <?php foreach ($notifications as $notification): ?>
+                                        <li class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="fw-semibold"><?php echo htmlspecialchars($notification['title']); ?></span>
+                                                <span class="text-muted small"><?php echo htmlspecialchars(format_datetime($notification['created_at'])); ?></span>
+                                            </div>
+                                            <div class="text-muted small"><?php echo htmlspecialchars($notification['message']); ?></div>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else: ?>
+                                <p class="text-muted mb-0">No notifications yet.</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

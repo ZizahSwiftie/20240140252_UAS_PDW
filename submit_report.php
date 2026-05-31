@@ -20,6 +20,8 @@ $location = '';
 $latitude = '';
 $longitude = '';
 $extra_head = '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">';
+$min_incident_date = date('Y-m-d', strtotime('-100 years'));
+$max_incident_date = date('Y-m-d');
 
 function is_valid_report_date($date)
 {
@@ -32,7 +34,13 @@ function is_valid_report_date($date)
     return checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
 }
 
+function is_date_in_range($date, $min_date, $max_date)
+{
+    return $date >= $min_date && $date <= $max_date;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_valid_csrf();
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $category = trim($_POST['category'] ?? '');
@@ -63,6 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['incident_date'] = 'Incident date is required.';
     } elseif (!is_valid_report_date($incident_date)) {
         $errors['incident_date'] = 'Please enter a valid date.';
+    } elseif (!is_date_in_range($incident_date, $min_incident_date, $max_incident_date)) {
+        $errors['incident_date'] = 'Incident date must be within the last 100 years and not in the future.';
     }
 
     if ($location === '') {
@@ -138,14 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mysqli_stmt_bind_param($stmt, 'isssssssss', $user_id, $title, $description, $category, $incident_date, $location, $image_path, $status, $latitude_value, $longitude_value);
 
             if (mysqli_stmt_execute($stmt)) {
-                $success_message = 'Your report has been submitted successfully.';
-                $title = '';
-                $description = '';
-                $category = '';
-                $incident_date = '';
-                $location = '';
-                $latitude = '';
-                $longitude = '';
+                add_status_history($conn, (int) mysqli_insert_id($conn), $status, 'Report submitted.');
+                set_flash_message('success', 'Your report has been submitted successfully.');
+                mysqli_stmt_close($stmt);
+                redirect('/complaint-system/my_reports.php');
             } else {
                 error_log('Report insert failed: ' . mysqli_stmt_error($stmt));
                 $errors['general'] = 'Unable to save report. Please try again.';
@@ -179,13 +185,6 @@ include 'includes/header.php';
                         <h1 class="h3 mb-3">Submit Report</h1>
                         <p class="text-muted mb-4">Fill in the complaint details and upload a supporting image.</p>
 
-                        <?php if ($success_message !== ''): ?>
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <?php echo htmlspecialchars($success_message); ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        <?php endif; ?>
-
                         <?php if (isset($errors['general'])): ?>
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <?php echo htmlspecialchars($errors['general']); ?>
@@ -194,93 +193,147 @@ include 'includes/header.php';
                         <?php endif; ?>
 
                         <form method="POST" action="submit_report.php" enctype="multipart/form-data" novalidate>
-                            <div class="mb-3">
-                                <label for="title" class="form-label">Title</label>
-                                <input type="text" class="form-control <?php echo isset($errors['title']) ? 'is-invalid' : ''; ?>" id="title" name="title" value="<?php echo sanitize_input($title); ?>" placeholder="Brief summary of the complaint" required>
-                                <?php if (isset($errors['title'])): ?>
-                                    <div class="invalid-feedback"><?php echo htmlspecialchars($errors['title']); ?></div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control <?php echo isset($errors['description']) ? 'is-invalid' : ''; ?>" id="description" name="description" rows="6" placeholder="Describe what happened and any important details" required><?php echo sanitize_input($description); ?></textarea>
-                                <?php if (isset($errors['description'])): ?>
-                                    <div class="invalid-feedback"><?php echo htmlspecialchars($errors['description']); ?></div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="category" class="form-label">Category</label>
-                                    <select class="form-select <?php echo isset($errors['category']) ? 'is-invalid' : ''; ?>" id="category" name="category" required>
-                                        <option value="">Select category</option>
-                                        <?php foreach ($categories as $option): ?>
-                                            <option value="<?php echo htmlspecialchars($option); ?>" <?php echo $category === $option ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($option); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <?php if (isset($errors['category'])): ?>
-                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['category']); ?></div>
-                                    <?php endif; ?>
+                            <?php csrf_field(); ?>
+                            <div class="form-steps">
+                                <div class="form-step-indicator active" data-step="1">
+                                    <span class="step-index">1</span>
+                                    <span class="step-label">Details</span>
                                 </div>
-
-                                <div class="col-md-6 mb-3">
-                                    <label for="incident_date" class="form-label">Incident Date</label>
-                                    <input type="date" class="form-control <?php echo isset($errors['incident_date']) ? 'is-invalid' : ''; ?>" id="incident_date" name="incident_date" value="<?php echo sanitize_input($incident_date); ?>" required>
-                                    <?php if (isset($errors['incident_date'])): ?>
-                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['incident_date']); ?></div>
-                                    <?php endif; ?>
+                                <div class="form-step-indicator" data-step="2">
+                                    <span class="step-index">2</span>
+                                    <span class="step-label">Location</span>
+                                </div>
+                                <div class="form-step-indicator" data-step="3">
+                                    <span class="step-index">3</span>
+                                    <span class="step-label">Evidence</span>
                                 </div>
                             </div>
 
-                            <div class="mb-3">
-                                <label for="location" class="form-label">Location</label>
-                                <input type="text" class="form-control <?php echo isset($errors['location']) ? 'is-invalid' : ''; ?>" id="location" name="location" value="<?php echo sanitize_input($location); ?>" placeholder="Street, building, or public area" required>
-                                <?php if (isset($errors['location'])): ?>
-                                    <div class="invalid-feedback"><?php echo htmlspecialchars($errors['location']); ?></div>
-                                <?php endif; ?>
-                            </div>
+                            <div class="form-step" data-step="1">
+                                <div class="mb-3">
+                                    <label for="title" class="form-label">Title</label>
+                                    <div class="field-control">
+                                        <input type="text" class="form-control field-input <?php echo isset($errors['title']) ? 'is-invalid' : ''; ?>" id="title" name="title" value="<?php echo sanitize_input($title); ?>" placeholder="Brief summary of the complaint" required>
+                                        <span class="validation-warn" aria-hidden="true">!</span>
+                                        <span class="validation-tick" aria-hidden="true">&#10003;</span>
+                                    </div>
+                                    <?php if (isset($errors['title'])): ?>
+                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['title']); ?></div>
+                                    <?php endif; ?>
+                                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Incident Location on Map</label>
-                                <p class="form-text mb-2">Click map to select incident location. Click again to move the marker.</p>
-                                <div class="map-tools p-3 mb-3">
-                                    <div class="row g-2 align-items-end">
-                                        <div class="col-md-7">
-                                            <label for="location_search" class="form-label small mb-1">Search Location</label>
-                                            <input type="text" class="form-control" id="location_search" placeholder="Search location (e.g. Yogyakarta)">
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Description</label>
+                                    <div class="field-control field-control-textarea">
+                                        <textarea class="form-control field-input <?php echo isset($errors['description']) ? 'is-invalid' : ''; ?>" id="description" name="description" rows="6" placeholder="Describe what happened and any important details" required><?php echo sanitize_input($description); ?></textarea>
+                                        <span class="validation-warn" aria-hidden="true">!</span>
+                                        <span class="validation-tick" aria-hidden="true">&#10003;</span>
+                                    </div>
+                                    <?php if (isset($errors['description'])): ?>
+                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['description']); ?></div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="category" class="form-label">Category</label>
+                                        <div class="field-control">
+                                            <select class="form-select field-input <?php echo isset($errors['category']) ? 'is-invalid' : ''; ?>" id="category" name="category" required>
+                                                <option value="">Select category</option>
+                                                <?php foreach ($categories as $option): ?>
+                                                    <option value="<?php echo htmlspecialchars($option); ?>" <?php echo $category === $option ? 'selected' : ''; ?>>
+                                                        <?php echo htmlspecialchars($option); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <span class="validation-warn" aria-hidden="true">!</span>
+                                            <span class="validation-tick" aria-hidden="true">&#10003;</span>
                                         </div>
-                                        <div class="col-md-5">
-                                            <div class="d-grid d-sm-flex gap-2">
-                                                <button type="button" class="btn btn-outline-primary" id="search_location_button">Search</button>
-                                                <button type="button" class="btn btn-outline-secondary" id="current_location_button">Use My Current Location</button>
+                                        <?php if (isset($errors['category'])): ?>
+                                            <div class="invalid-feedback"><?php echo htmlspecialchars($errors['category']); ?></div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label for="incident_date" class="form-label">Incident Date</label>
+                                        <div class="field-control">
+                                            <input type="date" class="form-control field-input <?php echo isset($errors['incident_date']) ? 'is-invalid' : ''; ?>" id="incident_date" name="incident_date" value="<?php echo sanitize_input($incident_date); ?>" min="<?php echo $min_incident_date; ?>" max="<?php echo $max_incident_date; ?>" required>
+                                            <span class="validation-warn" aria-hidden="true">!</span>
+                                            <span class="validation-tick" aria-hidden="true">&#10003;</span>
+                                        </div>
+                                        <?php if (isset($errors['incident_date'])): ?>
+                                            <div class="invalid-feedback"><?php echo htmlspecialchars($errors['incident_date']); ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-step d-none" data-step="2">
+                                <div class="mb-3">
+                                    <label class="form-label">Incident Location on Map</label>
+                                    <p class="form-text mb-2">Click map to select incident location. Click again to move the marker.</p>
+                                    <div class="map-tools p-3 mb-3">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-7">
+                                                <label for="location_search" class="form-label small mb-1">Search Location</label>
+                                                <input type="text" class="form-control" id="location_search" placeholder="Search location (e.g. Yogyakarta)">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <div class="d-grid d-sm-flex gap-2">
+                                                    <button type="button" class="btn btn-outline-primary" id="search_location_button">Search</button>
+                                                    <button type="button" class="btn btn-outline-secondary" id="current_location_button">Use My Current Location</button>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div id="map_message" class="alert d-none mt-3 mb-0" role="alert"></div>
                                     </div>
-                                    <div id="map_message" class="alert d-none mt-3 mb-0" role="alert"></div>
+                                    <div id="incident_map" class="map-panel"></div>
+                                    <input type="hidden" id="latitude" name="latitude" value="<?php echo sanitize_input($latitude); ?>">
+                                    <input type="hidden" id="longitude" name="longitude" value="<?php echo sanitize_input($longitude); ?>">
+                                    <?php if (isset($errors['coordinates'])): ?>
+                                        <div class="text-danger small mt-2"><?php echo htmlspecialchars($errors['coordinates']); ?></div>
+                                    <?php endif; ?>
                                 </div>
-                                <div id="incident_map" class="map-panel"></div>
-                                <input type="hidden" id="latitude" name="latitude" value="<?php echo sanitize_input($latitude); ?>">
-                                <input type="hidden" id="longitude" name="longitude" value="<?php echo sanitize_input($longitude); ?>">
-                                <?php if (isset($errors['coordinates'])): ?>
-                                    <div class="text-danger small mt-2"><?php echo htmlspecialchars($errors['coordinates']); ?></div>
-                                <?php endif; ?>
+
+                                <div class="mb-3">
+                                    <label for="location" class="form-label">Location</label>
+                                    <div class="field-control">
+                                        <input type="text" class="form-control field-input <?php echo isset($errors['location']) ? 'is-invalid' : ''; ?>" id="location" name="location" value="<?php echo sanitize_input($location); ?>" placeholder="Street, building, or public area" required>
+                                        <span class="validation-warn" aria-hidden="true">!</span>
+                                        <span class="validation-tick" aria-hidden="true">&#10003;</span>
+                                    </div>
+                                    <?php if (isset($errors['location'])): ?>
+                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['location']); ?></div>
+                                    <?php endif; ?>
+                                </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label for="image" class="form-label">Image Evidence</label>
-                                <input type="file" class="form-control <?php echo isset($errors['image']) ? 'is-invalid' : ''; ?>" id="image" name="image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
-                                <div class="form-text">Allowed: JPG, JPEG, PNG. Maximum size: 5MB.</div>
-                                <?php if (isset($errors['image'])): ?>
-                                    <div class="invalid-feedback"><?php echo htmlspecialchars($errors['image']); ?></div>
-                                <?php endif; ?>
+                            <div class="form-step d-none" data-step="3">
+                                <div class="mb-3">
+                                    <label for="image" class="form-label">Image Evidence</label>
+                                    <div class="field-control">
+                                        <input type="file" class="form-control field-input <?php echo isset($errors['image']) ? 'is-invalid' : ''; ?>" id="image" name="image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+                                        <span class="validation-warn" aria-hidden="true">!</span>
+                                        <span class="validation-tick" aria-hidden="true">&#10003;</span>
+                                    </div>
+                                    <div class="form-text">Allowed: JPG, JPEG, PNG. Maximum size: 5MB.</div>
+                                    <?php if (isset($errors['image'])): ?>
+                                        <div class="invalid-feedback"><?php echo htmlspecialchars($errors['image']); ?></div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="image-preview d-none" id="image_preview">
+                                    <img src="" alt="Selected evidence preview" class="image-preview-img">
+                                </div>
                             </div>
 
-                            <div class="d-grid d-sm-flex gap-2">
-                                <button type="submit" class="btn btn-primary">Submit Report</button>
-                                <a href="my_reports.php" class="btn btn-outline-secondary">My Reports</a>
+                            <div class="form-step-actions">
+                                <button type="button" class="btn btn-outline-secondary" id="prev_step">Back</button>
+                                <div class="form-actions">
+                                    <a href="my_reports.php" class="btn btn-outline-secondary">My Reports</a>
+                                    <button type="button" class="btn btn-primary" id="next_step">Next</button>
+                                    <button type="submit" class="btn btn-primary d-none" id="submit_report">Submit Report</button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -302,6 +355,52 @@ include 'includes/header.php';
     const searchInput = document.getElementById('location_search');
     const searchButton = document.getElementById('search_location_button');
     const currentLocationButton = document.getElementById('current_location_button');
+    const locationInput = document.getElementById('location');
+    const stepIndicators = document.querySelectorAll('.form-step-indicator');
+    const steps = document.querySelectorAll('.form-step');
+    const prevStepButton = document.getElementById('prev_step');
+    const nextStepButton = document.getElementById('next_step');
+    const submitButton = document.getElementById('submit_report');
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('image_preview');
+    const imagePreviewImg = imagePreview ? imagePreview.querySelector('img') : null;
+    let currentStep = 1;
+    const fieldRules = {
+        title: function (value) {
+            return value.length >= 5 && value.length <= 150;
+        },
+        description: function (value) {
+            return value.length >= 10;
+        },
+        category: function (value) {
+            return value !== '';
+        },
+        incident_date: function (value) {
+            if (value === '') {
+                return false;
+            }
+
+            const minDate = document.getElementById('incident_date').getAttribute('min');
+            const maxDate = document.getElementById('incident_date').getAttribute('max');
+
+            return value >= minDate && value <= maxDate;
+        },
+        location: function (value) {
+            return value.length > 0;
+        },
+        image: function () {
+            const fileInput = document.getElementById('image');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                return false;
+            }
+
+            const file = fileInput.files[0];
+            const allowedTypes = ['image/jpeg', 'image/png'];
+            const maxSize = 5 * 1024 * 1024;
+
+            return allowedTypes.includes(file.type) && file.size <= maxSize;
+        }
+    };
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -336,6 +435,157 @@ include 'includes/header.php';
         setIncidentMarker(lat, lng);
     }
 
+    function updateLocationInput(name) {
+        if (!name) {
+            return;
+        }
+
+        locationInput.value = name;
+        validateField(locationInput);
+    }
+
+    function showStep(step) {
+        currentStep = step;
+        steps.forEach((item) => {
+            item.classList.toggle('d-none', parseInt(item.dataset.step, 10) !== step);
+        });
+        stepIndicators.forEach((item) => {
+            const itemStep = parseInt(item.dataset.step, 10);
+            item.classList.toggle('active', itemStep === step);
+            item.classList.toggle('completed', itemStep < step);
+        });
+
+        if (prevStepButton) {
+            prevStepButton.disabled = step === 1;
+        }
+
+        if (nextStepButton && submitButton) {
+            const isLast = step === steps.length;
+            nextStepButton.classList.toggle('d-none', isLast);
+            submitButton.classList.toggle('d-none', !isLast);
+        }
+
+        if (step === 2 && incidentMap) {
+            setTimeout(() => {
+                incidentMap.invalidateSize();
+            }, 200);
+        }
+    }
+
+    function validateStep(step) {
+        const stepFields = {
+            1: ['title', 'description', 'category', 'incident_date'],
+            2: ['location'],
+            3: ['image']
+        };
+        const fields = stepFields[step] || [];
+        let valid = true;
+
+        fields.forEach((fieldId) => {
+            const field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+            field.dataset.touched = 'true';
+            validateField(field);
+            if (!field.classList.contains('is-valid')) {
+                valid = false;
+            }
+        });
+
+        return valid;
+    }
+
+    function validateField(field) {
+        const rule = fieldRules[field.id];
+
+        if (!rule) {
+            return;
+        }
+
+        const value = field.value.trim();
+        const isValid = rule(value);
+
+        field.classList.toggle('is-valid', isValid);
+        field.classList.toggle('is-pending', field.dataset.touched === 'true' && !isValid);
+        if (isValid) {
+            field.classList.remove('is-invalid');
+        }
+
+        if (field.id === 'incident_date') {
+            field.setCustomValidity(isValid ? '' : 'Incident date must be within the last 100 years and not in the future.');
+        }
+    }
+
+    Object.keys(fieldRules).forEach(function (fieldId) {
+        const field = document.getElementById(fieldId);
+
+        if (!field) {
+            return;
+        }
+
+        const handler = function () {
+            field.dataset.touched = 'true';
+            validateField(field);
+        };
+
+        field.addEventListener('input', handler);
+        field.addEventListener('change', handler);
+        validateField(field);
+    });
+
+    if (prevStepButton) {
+        prevStepButton.addEventListener('click', function () {
+            showStep(Math.max(1, currentStep - 1));
+        });
+    }
+
+    if (nextStepButton) {
+        nextStepButton.addEventListener('click', function () {
+            if (validateStep(currentStep)) {
+                showStep(Math.min(steps.length, currentStep + 1));
+            } else {
+                showMapMessage('Please complete the required fields before continuing.', 'warning');
+            }
+        });
+    }
+
+    if (imageInput) {
+        imageInput.addEventListener('change', function () {
+            if (imageInput.files && imageInput.files[0] && imagePreview && imagePreviewImg) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    imagePreviewImg.src = event.target.result;
+                    imagePreview.classList.remove('d-none');
+                };
+                reader.readAsDataURL(imageInput.files[0]);
+            }
+        });
+    }
+
+    showStep(currentStep);
+
+    function reverseGeocode(lat, lng) {
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng), {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Reverse geocoding failed.');
+                }
+
+                return response.json();
+            })
+            .then(function (data) {
+                updateLocationInput(data.display_name || '');
+            })
+            .catch(function () {
+                showMapMessage('Unable to fetch the location name. You can type it manually.', 'warning');
+            });
+    }
+
     if (savedLatitude !== null && savedLongitude !== null) {
         setIncidentMarker(savedLatitude, savedLongitude);
     }
@@ -343,6 +593,7 @@ include 'includes/header.php';
     incidentMap.on('click', function (event) {
         clearMapMessage();
         setIncidentMarker(event.latlng.lat, event.latlng.lng);
+        reverseGeocode(event.latlng.lat, event.latlng.lng);
     });
 
     currentLocationButton.addEventListener('click', function () {
@@ -361,6 +612,7 @@ include 'includes/header.php';
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 moveMapToLocation(lat, lng, 16);
+                reverseGeocode(lat, lng);
                 showMapMessage('Current location selected. You can click the map to adjust it.', 'success');
                 currentLocationButton.disabled = false;
                 currentLocationButton.textContent = 'Use My Current Location';
@@ -427,6 +679,7 @@ include 'includes/header.php';
                 }
 
                 moveMapToLocation(lat, lng, 15);
+                updateLocationInput(results[0].display_name || query);
                 showMapMessage('Location selected from search result. You can click the map to adjust it.', 'success');
             })
             .catch(function () {

@@ -17,6 +17,7 @@ $errors = [];
 $email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_valid_csrf();
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -31,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $sql = 'SELECT id, name, email, password, role FROM users WHERE email = ? LIMIT 1';
+        $sql = 'SELECT id, name, email, password, role, profile_image FROM users WHERE email = ? LIMIT 1';
         $stmt = mysqli_prepare($conn, $sql);
 
         if ($stmt) {
@@ -46,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_role'] = $user['role'];
+                $_SESSION['user_avatar'] = $user['profile_image'] ?? '';
 
                 mysqli_stmt_close($stmt);
 
@@ -74,6 +76,11 @@ include 'includes/header.php';
             <div class="col-md-7 col-lg-5">
                 <div class="card app-card">
                     <div class="card-body p-4">
+                        <div class="text-center mb-3">
+                            <span class="brand-mark">
+                                <img src="/complaint-system/logo/logo.png" alt="Complaint System logo" class="brand-logo">
+                            </span>
+                        </div>
                         <h1 class="h3 text-center mb-4">Login</h1>
 
                         <?php if (isset($errors['general'])): ?>
@@ -84,6 +91,7 @@ include 'includes/header.php';
                         <?php endif; ?>
 
                         <form method="POST" action="login.php" novalidate>
+                            <?php csrf_field(); ?>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email</label>
                                 <input type="email" class="form-control <?php echo isset($errors['email']) ? 'is-invalid' : ''; ?>" id="email" name="email" value="<?php echo sanitize_input($email); ?>" placeholder="name@example.com" required>
@@ -100,7 +108,9 @@ include 'includes/header.php';
                                 <?php endif; ?>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100">Login</button>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Login</button>
+                            </div>
                         </form>
 
                         <p class="text-center text-muted mt-3 mb-0">

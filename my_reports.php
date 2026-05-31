@@ -8,15 +8,33 @@ $page_title = 'My Reports - Public Complaint Management System';
 $user_id = (int) $_SESSION['user_id'];
 $reports = [];
 $error_message = '';
+$per_page = 10;
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$offset = ($page - 1) * $per_page;
+$total_reports = 0;
+$total_pages = 1;
+
+$count_stmt = mysqli_prepare($conn, 'SELECT COUNT(*) AS total_count FROM reports WHERE user_id = ?');
+
+if ($count_stmt) {
+    mysqli_stmt_bind_param($count_stmt, 'i', $user_id);
+    mysqli_stmt_execute($count_stmt);
+    $count_result = mysqli_stmt_get_result($count_stmt);
+    $count_row = mysqli_fetch_assoc($count_result);
+    $total_reports = (int) ($count_row['total_count'] ?? 0);
+    $total_pages = max(1, (int) ceil($total_reports / $per_page));
+    mysqli_stmt_close($count_stmt);
+}
 
 $sql = 'SELECT id, title, category, status, image, created_at
         FROM reports
         WHERE user_id = ?
-        ORDER BY created_at DESC';
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?';
 $stmt = mysqli_prepare($conn, $sql);
 
 if ($stmt) {
-    mysqli_stmt_bind_param($stmt, 'i', $user_id);
+    mysqli_stmt_bind_param($stmt, 'iii', $user_id, $per_page, $offset);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -69,7 +87,7 @@ include 'includes/header.php';
                                     <tr>
                                         <td style="width: 110px;">
                                             <?php if (!empty($report['image'])): ?>
-                                                <img src="<?php echo htmlspecialchars($report['image']); ?>" alt="Report image" class="img-thumbnail report-thumb">
+                                                <img src="<?php echo htmlspecialchars($report['image']); ?>" alt="Report image" class="img-thumbnail report-thumb" loading="lazy">
                                             <?php else: ?>
                                                 <span class="text-muted small">No image</span>
                                             <?php endif; ?>
@@ -90,6 +108,21 @@ include 'includes/header.php';
                             </tbody>
                         </table>
                     </div>
+                    <?php if ($total_pages > 1): ?>
+                        <div class="p-3 border-top d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Page <?php echo $page; ?> of <?php echo $total_pages; ?></span>
+                            <nav>
+                                <ul class="pagination mb-0">
+                                    <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+                                        <a class="page-link" href="?page=<?php echo max(1, $page - 1); ?>">Prev</a>
+                                    </li>
+                                    <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
+                                        <a class="page-link" href="?page=<?php echo min($total_pages, $page + 1); ?>">Next</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    <?php endif; ?>
                 <?php else: ?>
                     <div class="empty-state text-center">
                         <h2 class="h5 mb-2">No reports yet</h2>

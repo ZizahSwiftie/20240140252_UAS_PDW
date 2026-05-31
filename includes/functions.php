@@ -31,16 +31,117 @@ function redirect($url)
     exit;
 }
 
+function get_csrf_token()
+{
+    start_secure_session();
+
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    return $_SESSION['csrf_token'];
+}
+
+function csrf_field()
+{
+    $token = get_csrf_token();
+    echo '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+}
+
+function validate_csrf_token()
+{
+    start_secure_session();
+    $token = $_POST['csrf_token'] ?? '';
+
+    return is_string($token) && hash_equals($_SESSION['csrf_token'] ?? '', $token);
+}
+
+function require_valid_csrf()
+{
+    if (!validate_csrf_token()) {
+        http_response_code(403);
+        die('Invalid request token. Please refresh and try again.');
+    }
+}
+
+function set_flash_message($type, $message)
+{
+    start_secure_session();
+    $_SESSION['flash_message'] = [
+        'type' => $type,
+        'message' => $message
+    ];
+}
+
+function get_flash_message()
+{
+    start_secure_session();
+    $message = $_SESSION['flash_message'] ?? null;
+    unset($_SESSION['flash_message']);
+
+    return $message;
+}
+
+function clear_authenticated_session()
+{
+    start_secure_session();
+    unset(
+        $_SESSION['user_id'],
+        $_SESSION['user_name'],
+        $_SESSION['user_role'],
+        $_SESSION['user_avatar']
+    );
+}
+
 function is_logged_in()
 {
     start_secure_session();
-    return isset($_SESSION['user_id']);
+
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+
+    global $conn;
+
+    if (!isset($conn) || !($conn instanceof mysqli)) {
+        return true;
+    }
+
+    $user_id = (int) $_SESSION['user_id'];
+    $sql = 'SELECT name, role, profile_image FROM users WHERE id = ? LIMIT 1';
+
+    try {
+        $stmt = mysqli_prepare($conn, $sql);
+
+        if (!$stmt) {
+            return true;
+        }
+
+        mysqli_stmt_bind_param($stmt, 'i', $user_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $user = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+    } catch (mysqli_sql_exception $exception) {
+        error_log('Session user validation failed: ' . $exception->getMessage());
+        return true;
+    }
+
+    if (!$user) {
+        clear_authenticated_session();
+        return false;
+    }
+
+    $_SESSION['user_name'] = $user['name'];
+    $_SESSION['user_role'] = $user['role'];
+    $_SESSION['user_avatar'] = $user['profile_image'] ?? '';
+
+    return true;
 }
 
 function is_admin()
 {
-    start_secure_session();
-    return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
+    return is_logged_in() && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
 }
 
 function require_login()
@@ -92,5 +193,51 @@ function format_date($value)
     }
 
     return date('d M Y', strtotime($value));
+}
+
+function log_admin_action($conn, $action, $details, $report_id = null)
+{
+    if (!is_admin()) {
+        return;
+    }
+
+    $admin_id = (int) ($_SESSION['user_id'] ?? 0);
+    if ($admin_id <= 0) {
+        return;
+    }
+
+    $sql = 'INSERT INTO audit_logs (admin_id, report_id, action, details) VALUES (?, ?, ?, ?)';
+    $stmt = mysqli_prepare($conn, $sql);
+
+    if ($stmt) {
+        $report_value = $report_id ? (int) $report_id : null;
+        mysqli_stmt_bind_param($stmt, 'iiss', $admin_id, $report_value, $action, $details);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+}
+
+function add_status_history($conn, $report_id, $status, $note = null)
+{
+    $sql = 'INSERT INTO report_status_history (report_id, status, note) VALUES (?, ?, ?)';
+    $stmt = mysqli_prepare($conn, $sql);
+
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, 'iss', $report_id, $status, $note);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+}
+
+function add_notification($conn, $user_id, $title, $message)
+{
+    $sql = 'INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)';
+    $stmt = mysqli_prepare($conn, $sql);
+
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, 'iss', $user_id, $title, $message);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
 }
 ?>
